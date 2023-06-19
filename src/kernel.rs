@@ -217,6 +217,7 @@ impl<'res> DescriptorSet<'res> {
 }
 
 impl Shader {
+    #[cfg(feature = "spirv")]
     /// Initialises a [`Shader`] from a SPIR-V file.
     pub fn from_spirv_file(fw: &Framework, path: impl AsRef<Path>) -> std::io::Result<Self> {
         let bytes = std::fs::read(&path)?;
@@ -225,6 +226,7 @@ impl Shader {
         Ok(Self::from_spirv_bytes(fw, &bytes, shader_name))
     }
 
+    #[cfg(feature = "spirv")]
     /// Initialises a [`Shader`] from SPIR-V bytes with an optional `name`.
     pub fn from_spirv_bytes(fw: &Framework, bytes: &[u8], name: Option<&str>) -> Self {
         let source = wgpu::util::make_spirv(bytes);

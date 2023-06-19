@@ -106,11 +106,18 @@ where
             &self.fw.queue,
             &self.buf.slice(..download_size),
             move |result| {
-                tx.send(result)
+                log::warn!("callback");
+                // result.unwrap().clone_into(&mut dlbuffer);
+                let bb = result.unwrap();
+                tx.send(bb.to_vec())
                     .unwrap_or_else(|_| panic!("Failed to download buffer."));
             },
         );
-        let download = rx.await.unwrap().unwrap();
+        log::warn!("polling download buf");
+        self.fw.poll_blocking();
+        log::warn!("polled download buf");
+
+        let download = rx.await.unwrap();
 
         buf.copy_from_slice(bytemuck::cast_slice(&download));
 
@@ -126,11 +133,13 @@ where
         Ok(buf)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     /// Blocking version of `GpuBuffer::read()`.
     pub fn read_blocking(&self, buf: &mut [T]) -> BufferResult<u64> {
         futures::executor::block_on(self.read(buf))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     /// Blocking version of `GpuBuffer::read_vec()`.
     pub fn read_vec_blocking(&self) -> BufferResult<Vec<T>> {
         futures::executor::block_on(self.read_vec())

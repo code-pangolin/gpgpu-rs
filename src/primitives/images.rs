@@ -72,6 +72,7 @@ where
             sample_count: 1,
             format,
             usage: GPU_IMAGE_USAGES,
+            view_formats: &vec![format],
         });
 
         let full_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -104,6 +105,7 @@ where
                 sample_count: 1,
                 format,
                 usage: GPU_IMAGE_USAGES,
+                view_formats: &vec![format],
             },
             data,
         );
@@ -201,7 +203,7 @@ where
             buffer: &staging,
             layout: wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: NonZeroU32::new(padded_bytes_per_row),
+                bytes_per_row: Some(padded_bytes_per_row),
                 rows_per_image: None,
             },
         };
@@ -216,11 +218,12 @@ where
             &self.fw.queue,
             &staging.slice(..),
             move |result| {
-                tx.send(result)
+                let bb = result.unwrap();
+                tx.send(bb.to_vec())
                     .unwrap_or_else(|_| panic!("Failed to download buffer."));
             },
         );
-        let download = rx.await.unwrap().unwrap();
+        let download = rx.await.unwrap();
 
         let bytes_read: usize = download
             .chunks(padded_bytes_per_row as usize)
@@ -245,11 +248,14 @@ where
         Ok(buf)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     /// Blocking version of `GpuImage::read()`.
     pub fn read_blocking(&self, buf: &mut [u8]) -> Result<usize, ImageOutputError> {
         futures::executor::block_on(self.read(buf))
     }
 
+
+    #[cfg(not(target_arch = "wasm32"))]
     /// Blocking version of `GpuImage::read_vec()`.
     pub fn read_vec_blocking(&self) -> Result<Vec<u8>, ImageOutputError> {
         futures::executor::block_on(self.read_vec())
@@ -289,10 +295,7 @@ where
             write_buf,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(
-                    NonZeroU32::new(P::byte_size() as u32 * self.size.width)
-                        .expect("Could not create a NonZeroU32."),
-                ),
+                bytes_per_row: Some(P::byte_size() as u32 * self.size.width),
                 rows_per_image: None,
             },
             size,
@@ -348,6 +351,7 @@ where
             sample_count: 1,
             format,
             usage: GPU_CONST_IMAGE_USAGES,
+            view_formats: &vec![format],
         });
 
         let full_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -380,6 +384,7 @@ where
                 sample_count: 1,
                 format,
                 usage: GPU_CONST_IMAGE_USAGES,
+                view_formats: &vec![format],
             },
             data,
         );
@@ -462,10 +467,7 @@ where
             write_buf,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(
-                    NonZeroU32::new(P::byte_size() as u32 * self.size.width)
-                        .expect("Could not create a NonZeroU32."),
-                ),
+                bytes_per_row: Some(P::byte_size() as u32 * self.size.width),
                 rows_per_image: None,
             },
             size,
